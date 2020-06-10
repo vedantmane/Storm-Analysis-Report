@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/626183/017d3ee9090a4fc0abe2fb60d4f545b6
+bundleId: https://api.rpubs.com/api/v1/document/626183/017d3ee9090a4fc0abe2fb60d4f545b6
+url: http://rpubs.com/vedantmane/626183
+when: 1591784652.35873
