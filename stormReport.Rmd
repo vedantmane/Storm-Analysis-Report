@@ -1,0 +1,124 @@
+---
+title: "Storm Data Analyis Report"
+output:
+      html_document:
+            keep_md: true
+author: "Vedant Mane"
+date: "June 10, 2020"
+---
+
+# Exploring the U.S. National Oceanic and Atmospheric Administration’s (NOAA) storm database - Health and Economic Impacts
+
+      Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+      This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+      This report gives us a brief idea about the weather events in the United States that cause major destruction of life and property within the country.
+
+## Data Processing
+
+First, we download data from the NOAA storm database and load the same into R. 
+
+```{r data,cache=TRUE}
+fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+if(!dir.exists("./Data/")){
+      dir.create("./Data/")
+      download.file(fileURL, "./Data/data.csv.bz2")
+}
+stormData <- read.csv(bzfile("./Data/data.csv.bz2"))
+```
+
+## Transforming Dataset suitable for Analysis
+
+      Now, we can see that for our analysis there are only a few columns of our interest which include the Event Type, Rate of Fatalities and Injuries, Damage to Crop & Property. We carefully subset the data required.
+  
+      We clean the dataset to classify events into appropriate categories. Then, we calculate the actual cost of damage to property and crops using the amount and values specified in the database.
+
+```{r transform,cache=TRUE}
+dataSet <- stormData[,c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
+str(dataSet)
+dataSet$EVENT[grepl("HAIL", dataSet$EVTYPE, ignore.case = TRUE)] <- "HAIL"
+dataSet$EVENT[grepl("HEAT", dataSet$EVTYPE, ignore.case = TRUE)] <- "HEAT"
+dataSet$EVENT[grepl("FLOOD", dataSet$EVTYPE, ignore.case = TRUE)] <- "FLOOD"
+dataSet$EVENT[grepl("STORM", dataSet$EVTYPE, ignore.case = TRUE)] <- "STORM"
+dataSet$EVENT[grepl("WINTER", dataSet$EVTYPE, ignore.case = TRUE)] <- "WINTER"
+dataSet$EVENT[grepl("WIND", dataSet$EVTYPE, ignore.case = TRUE)] <- "WIND"
+dataSet$EVENT[grepl("SNOW", dataSet$EVTYPE, ignore.case = TRUE)] <- "SNOW"
+dataSet$EVENT[grepl("TORNADO", dataSet$EVTYPE, ignore.case = TRUE)] <- "TORNADO"
+dataSet$EVENT[grepl("RAIN", dataSet$EVTYPE, ignore.case = TRUE)] <- "RAIN"
+table(dataSet$EVENT)
+head(dataSet$PROPDMGEXP)
+head(dataSet$CROPDMGEXP)
+dataSet$PROPDMGEXP <- as.character(dataSet$PROPDMGEXP)
+dataSet$CROPDMGEXP <- as.character(dataSet$CROPDMGEXP)
+#NA values as 10^0
+dataSet$PROPDMGEXP[is.na(dataSet$PROPDMGEXP)] <- "0"
+dataSet$CROPDMGEXP[is.na(dataSet$CROPDMGEXP)] <- "0"
+#Everything except K, M & B as 10^0
+dataSet$PROPDMGEXP[!(grepl("K|M|B", dataSet$PROPDMGEXP, ignore.case = TRUE))] <- "0"
+dataSet$CROPDMGEXP[!(grepl("K|M|B", dataSet$CROPDMGEXP, ignore.case = TRUE))] <- "0"
+#Thousands as 10^3
+dataSet$PROPDMGEXP[grep("K", dataSet$PROPDMGEXP, ignore.case = TRUE)] <- "3"
+dataSet$CROPDMGEXP[grep("K", dataSet$CROPDMGEXP, ignore.case = TRUE)] <- "3"
+#Millions as 10^6
+dataSet$PROPDMGEXP[grep("M", dataSet$PROPDMGEXP, ignore.case = TRUE)] <- "6"
+dataSet$CROPDMGEXP[grep("M", dataSet$CROPDMGEXP, ignore.case = TRUE)] <- "6"
+#Billions as 10^9
+dataSet$PROPDMGEXP[grep("B", dataSet$PROPDMGEXP, ignore.case = TRUE)] <- "9"
+dataSet$CROPDMGEXP[grep("B", dataSet$CROPDMGEXP, ignore.case = TRUE)] <- "9"
+#Converting powers to Numeric Values
+dataSet$PROPDMGEXP <- as.numeric(dataSet$PROPDMGEXP)
+dataSet$CROPDMGEXP <- as.numeric(dataSet$CROPDMGEXP)
+#Calculating actual damage
+dataSet$property.damage <- dataSet$PROPDMG * 10^dataSet$PROPDMGEXP
+dataSet$crop.damage <- dataSet$CROPDMG * 10^dataSet$CROPDMGEXP
+str(dataSet)
+```
+
+## Analysing the Final Results
+
+      Perform analysis on the data to generate results(dividing the datasets into categories so that plotting can be done easily.) We categorise the dataset and aggregate the same for population health and economic damage and reshape the data so as to get a brief idea about the nature of the results. 
+
+```{r analysis}
+data <- dataSet[,c("EVENT","FATALITIES","INJURIES","property.damage","crop.damage")]
+str(data)
+fatalties <- tapply(data$FATALITIES, data$EVENT, sum)
+fatalties <- data.frame(names(fatalties), "fatalty", fatalties, row.names = NULL)
+names(fatalties) <- c("event","type","count")
+injuries <- tapply(data$INJURIES, data$EVENT, sum)
+injuries <- data.frame(names(injuries), "injury", injuries, row.names = NULL)
+names(injuries) <- c("event","type","count")
+populationHealth <- rbind(fatalties, injuries)
+populationHealth
+
+propertyDamage <- tapply(data$property.damage, data$EVENT, sum)
+propertyDamage <- data.frame(names(propertyDamage), "property", propertyDamage, row.names = NULL)
+names(propertyDamage) <- c("event","type","amount")
+cropDamage <- tapply(data$crop.damage, data$EVENT, sum)
+cropDamage <- data.frame(names(cropDamage), "crop", cropDamage, row.names = NULL)
+names(cropDamage) <- c("event","type","amount")
+economicDamage <- rbind(propertyDamage, cropDamage)
+economicDamage
+```
+
+## RESULTS
+
+      From our analysis, we can conclude that Tornado has the most severe effect on the health on the population causing the highest number of fatalities and injuries to the population than the rest.
+
+Here is a plot verifying the results :
+
+```{r resultHealth, warning=FALSE}
+library(ggplot2)
+ggplot(populationHealth, aes(x = event, y = count, fill = type)) + geom_bar(stat = "identity") + xlab("Events") + ylab("Population affected") + ggtitle("US Most Harmful Events w.r.t. Population Health")
+```
+
+      From our analysis, we can conclude that Floods cause the greatest destruction to crop & property which results in great economic losses for the nation.
+
+Here is a plot verifying the results :
+
+
+```{r resultDamage, warning=FALSE}
+library(ggplot2)
+ggplot(economicDamage, aes(x = event, y = amount, fill = type)) + geom_bar(stat = "identity") + xlab("Events") + ylab("Amount in US Dollars") + ggtitle("US Events causing Greatest Economic Consequences")
+```
+
